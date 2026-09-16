@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us"><head>
 <script src="/vs/gameloader-helper.js"></script>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Ragdoll Archers</title>
@@ -47,6 +47,41 @@
     
     loadingCover.style.display = "";
 
+    // Keep the browser build in a sandbox-friendly cheat configuration.  The
+    // native game does not expose its C# save system to the page, so we use
+    // SendMessage when the corresponding game objects are present and also
+    // seed the common PlayerPrefs keys for new games.
+    const cheatTargets = ["GameManager", "GameController", "PlayerData", "SaveManager", "Shop", "ArrowShop", "UIManager"];
+    const cheatMethods = [
+      ["SetMoney", 2147483647],
+      ["SetCoins", 2147483647],
+      ["SetGold", 2147483647],
+      ["SetCurrency", 2147483647],
+      ["UnlockAllArrows", ""],
+      ["UnlockAllWeapons", ""],
+      ["UnlockAll", ""]
+    ];
+
+    function seedCheatPrefs() {
+      ["money", "coins", "gold", "currency", "Money", "Coins", "Gold"].forEach((key) => {
+        try { localStorage.setItem(key, "2147483647"); } catch (_) {}
+      });
+      ["arrowsUnlocked", "allArrowsUnlocked", "unlockedArrows", "allWeaponsUnlocked"].forEach((key) => {
+        try { localStorage.setItem(key, "true"); } catch (_) {}
+      });
+    }
+
+    function applyCheats() {
+      seedCheatPrefs();
+      if (!window.unityInstance || !window.unityInstance.SendMessage) return;
+      cheatTargets.forEach((target) => cheatMethods.forEach(([method, value]) => {
+        try { window.unityInstance.SendMessage(target, method, value); } catch (_) {}
+      }));
+    }
+
+    window.enableCheats = applyCheats;
+    seedCheatPrefs();
+
     const unityLoader = document.createElement("script");
     unityLoader.src = loaderUrl;
     unityLoader.onload = () => {
@@ -56,6 +91,10 @@
       }).then((unityInstance) => {
         window.unityInstance = unityInstance;
         loadingCover.style.display = "none";
+        applyCheats();
+        // Reapply after scene changes and purchases so the values remain
+        // effectively unlimited during the session.
+        window.setInterval(applyCheats, 1000);
       }).catch((message) => {
         alert(message);
       });
